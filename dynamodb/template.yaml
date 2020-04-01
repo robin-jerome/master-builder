@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Octank FSI"
+Resources:
+  InferenceTriggerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          const AWS = require('aws-sdk');
+          const dynamodb = new AWS.DynamoDB();
+          exports.handler = (event, context, callback) => {
+            console.log(`Received event ${JSON.stringify(event)}`);
+            callback(null,"done");
+          };
+      Handler: index.handler
+      FunctionName: octank-dynamo-stream-inference-trigger
+      Role:
+        Fn::GetAtt: [InferenceTriggerLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+  InferenceTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: InferenceTriggerLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams
+                Resource: "*"
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: octank-customer-table
+      AttributeDefinitions:
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+  DynamoDBTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: True
+      EventSourceArn:
+        Fn::GetAtt: [DynamoDBTable, StreamArn]
+      FunctionName:
+        Fn::GetAtt: [InferenceTriggerFunction, Arn]
+      StartingPosition: LATEST

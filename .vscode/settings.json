@@ -1,0 +1,15 @@
+{
+  "jshint.options": {
+    "esversion": 6
+  },
+  "editor.tabSize": 2,
+  "beautify.onSave": true,
+  "editor.formatOnSave": true,
+  "beautify.JSfiles": [
+    "js",
+    "json",
+    "jsbeautifyrc",
+    "jshintrc",
+    "ts"
+  ]
+}

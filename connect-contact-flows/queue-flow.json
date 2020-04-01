@@ -1,0 +1,593 @@
+{
+  "modules": [{
+    "id": "15445378-0358-427c-8e3e-d4693a07cf8d",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "05c9b198-6508-4fb2-af45-8526c535a05c"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "The time in queue is more than 5 minutes.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1077,
+        "y": 178
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "dbb742ec-5005-403b-896b-30b7cbf63732",
+    "type": "SetEventHook",
+    "branches": [{
+      "condition": "Success",
+      "transition": "1761a5fd-0eab-46c6-801f-1df5ec18ea56"
+    }, {
+      "condition": "Error",
+      "transition": "1761a5fd-0eab-46c6-801f-1df5ec18ea56"
+    }],
+    "parameters": [{
+      "name": "Type",
+      "value": "CustomerQueue"
+    }, {
+      "name": "ContactFlowId",
+      "value": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/contact-flow/4d31bde7-39ab-4abe-a9ea-227e923d360a",
+      "resourceName": "Default customer queue"
+    }],
+    "metadata": {
+      "position": {
+        "x": 41,
+        "y": 375
+      },
+      "contactFlow": {
+        "id": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/contact-flow/4d31bde7-39ab-4abe-a9ea-227e923d360a",
+        "text": "Default customer queue"
+      },
+      "customerOrAgent": false,
+      "useDynamic": false
+    }
+  }, {
+    "id": "67f2d6ed-c5bc-42cf-9011-b0589ef14103",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "c69c6e6e-8707-42e5-b8bc-d79d64385234"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "You are now being placed in queue to chat with an agent.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1664,
+        "y": 65
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "da46c982-772f-43be-a034-8402e4d7afea",
+    "type": "Transfer",
+    "branches": [{
+      "condition": "AtCapacity",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }, {
+      "condition": "Error",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 1646,
+        "y": 564
+      },
+      "useDynamic": false,
+      "queue": null
+    },
+    "target": "Queue"
+  }, {
+    "id": "c69c6e6e-8707-42e5-b8bc-d79d64385234",
+    "type": "Transfer",
+    "branches": [{
+      "condition": "AtCapacity",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }, {
+      "condition": "Error",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 1926,
+        "y": 39
+      },
+      "useDynamic": false,
+      "queue": null
+    },
+    "target": "Queue"
+  }, {
+    "id": "049d9571-48bf-4fa9-9b63-683288ddb456",
+    "type": "SetEventHook",
+    "branches": [{
+      "condition": "Success",
+      "transition": "da46c982-772f-43be-a034-8402e4d7afea"
+    }, {
+      "condition": "Error",
+      "transition": "da46c982-772f-43be-a034-8402e4d7afea"
+    }],
+    "parameters": [{
+      "name": "Type",
+      "value": "CustomerQueue"
+    }, {
+      "name": "ContactFlowId",
+      "value": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/contact-flow/60ddff3a-1fa3-48bf-a41b-eb24ccdfc5ea",
+      "resourceName": "Sample interruptible queue flow with callback"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1412,
+        "y": 517
+      },
+      "contactFlow": {
+        "id": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/contact-flow/60ddff3a-1fa3-48bf-a41b-eb24ccdfc5ea",
+        "text": "Sample interruptible queue flow with callback"
+      },
+      "customerOrAgent": false,
+      "useDynamic": false
+    }
+  }, {
+    "id": "f48561e5-3d02-4380-8031-8139cee399d2",
+    "type": "Disconnect",
+    "branches": [],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 890,
+        "y": 709
+      }
+    }
+  }, {
+    "id": "5cfb3fa1-78a7-4133-b553-ca7198181192",
+    "type": "SetQueue",
+    "branches": [{
+      "condition": "Success",
+      "transition": "dbb742ec-5005-403b-896b-30b7cbf63732"
+    }, {
+      "condition": "Error",
+      "transition": "cad6d3f7-e39e-426f-bf32-b99aa549a34b"
+    }],
+    "parameters": [{
+      "name": "Queue",
+      "value": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/queue/b2749288-76df-4533-9a2b-595974409f64",
+      "namespace": null,
+      "resourceName": "BasicQueue"
+    }],
+    "metadata": {
+      "position": {
+        "x": 31,
+        "y": 158
+      },
+      "useDynamic": false,
+      "queue": {
+        "id": "arn:aws:connect:us-east-1:197234178237:instance/5cba452a-8a6e-4493-bf8c-e26db1eb1d73/queue/b2749288-76df-4533-9a2b-595974409f64",
+        "text": "BasicQueue"
+      }
+    }
+  }, {
+    "id": "1761a5fd-0eab-46c6-801f-1df5ec18ea56",
+    "type": "CheckHoursOfOperation",
+    "branches": [{
+      "condition": "True",
+      "transition": "3746a42c-0735-4668-ade2-9335496f495e"
+    }, {
+      "condition": "False",
+      "transition": "cad6d3f7-e39e-426f-bf32-b99aa549a34b"
+    }, {
+      "condition": "Error",
+      "transition": "cad6d3f7-e39e-426f-bf32-b99aa549a34b"
+    }],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 48,
+        "y": 558
+      }
+    }
+  }, {
+    "id": "35d19e2a-432e-41a6-838d-bb9949910869",
+    "type": "GetUserInput",
+    "branches": [{
+      "condition": "Evaluate",
+      "conditionType": "Equals",
+      "conditionValue": "2",
+      "transition": "220a5a3b-1792-40dd-9c08-08b6bc122541"
+    }, {
+      "condition": "Evaluate",
+      "conditionType": "Equals",
+      "conditionValue": "1",
+      "transition": "049d9571-48bf-4fa9-9b63-683288ddb456"
+    }, {
+      "condition": "Timeout",
+      "transition": "049d9571-48bf-4fa9-9b63-683288ddb456"
+    }, {
+      "condition": "NoMatch",
+      "transition": "049d9571-48bf-4fa9-9b63-683288ddb456"
+    }, {
+      "condition": "Error",
+      "transition": "cad6d3f7-e39e-426f-bf32-b99aa549a34b"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "Press 1 to go into queue or 2 to enter a callback number.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }, {
+      "name": "Timeout",
+      "value": "5"
+    }, {
+      "name": "MaxDigits",
+      "value": "1"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1119,
+        "y": 381
+      },
+      "conditionMetadata": [{
+        "id": "9aa45ef8-b87d-4770-83c4-2b008187565d",
+        "value": "2"
+      }, {
+        "id": "4bb416b4-8476-416c-9ff7-e3409146e51c",
+        "value": "1"
+      }],
+      "useDynamic": false
+    },
+    "target": "Digits"
+  }, {
+    "id": "58ecb14e-0970-4d5b-9d4c-f2cb7d23bf12",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "220a5a3b-1792-40dd-9c08-08b6bc122541"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "The number entered is invalid. Please try again.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1888,
+        "y": 415
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "220a5a3b-1792-40dd-9c08-08b6bc122541",
+    "type": "StoreUserInput",
+    "branches": [{
+      "condition": "Success",
+      "transition": "9155d755-b5fb-4c17-a560-8a9d1095eedf"
+    }, {
+      "condition": "InvalidNumber",
+      "transition": "58ecb14e-0970-4d5b-9d4c-f2cb7d23bf12"
+    }, {
+      "condition": "Error",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "Enter the number you would like to be called back at.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }, {
+      "name": "CustomerInputType",
+      "value": "PhoneNumber"
+    }, {
+      "name": "Timeout",
+      "value": "6"
+    }, {
+      "name": "PhoneNumberFormat",
+      "value": "Local"
+    }, {
+      "name": "CountryCode",
+      "value": "US"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1404,
+        "y": 270
+      },
+      "useDynamic": false,
+      "useDynamicForEncryptionKeys": true,
+      "countryCodePrefix": "+1"
+    }
+  }, {
+    "id": "9155d755-b5fb-4c17-a560-8a9d1095eedf",
+    "type": "SetCallBackNumber",
+    "branches": [{
+      "condition": "Success",
+      "transition": "b5a7030b-23c9-4570-80d2-a9ec4c17e806"
+    }, {
+      "condition": "InvalidPhoneNumber",
+      "transition": "58ecb14e-0970-4d5b-9d4c-f2cb7d23bf12"
+    }, {
+      "condition": "NonDialableNumber",
+      "transition": "58ecb14e-0970-4d5b-9d4c-f2cb7d23bf12"
+    }],
+    "parameters": [{
+      "name": "CallBackNumber",
+      "value": "Stored customer input",
+      "namespace": "System"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1645,
+        "y": 265
+      }
+    }
+  }, {
+    "id": "0af94805-014a-4fb1-8a35-070fa35e2e22",
+    "type": "Disconnect",
+    "branches": [],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 2493,
+        "y": 379
+      }
+    }
+  }, {
+    "id": "43d31362-47a0-4897-8592-32ffc70b3b3c",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "0af94805-014a-4fb1-8a35-070fa35e2e22"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "Something went wrong. Goodbye.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 2182,
+        "y": 382
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "b5a7030b-23c9-4570-80d2-a9ec4c17e806",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "9ec9348c-c517-403f-935b-9c3bb8e35c1b"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "You will be called back when the next agent is available.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1882,
+        "y": 241
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "9ec9348c-c517-403f-935b-9c3bb8e35c1b",
+    "type": "CreateCallback",
+    "branches": [{
+      "condition": "Success",
+      "transition": "0af94805-014a-4fb1-8a35-070fa35e2e22"
+    }, {
+      "condition": "Error",
+      "transition": "43d31362-47a0-4897-8592-32ffc70b3b3c"
+    }],
+    "parameters": [{
+      "name": "InitialDelaySeconds",
+      "value": 5
+    }, {
+      "name": "RetryDelaySeconds",
+      "value": 600
+    }, {
+      "name": "MaxRetryAttempts",
+      "value": 1
+    }],
+    "metadata": {
+      "position": {
+        "x": 2206,
+        "y": 74
+      },
+      "useDynamic": false,
+      "queue": null
+    }
+  }, {
+    "id": "cad6d3f7-e39e-426f-bf32-b99aa549a34b",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "f48561e5-3d02-4380-8031-8139cee399d2"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "We are not able to take your call right now. Goodbye.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 604,
+        "y": 698
+      },
+      "useDynamic": false
+    }
+  }, {
+    "id": "3746a42c-0735-4668-ade2-9335496f495e",
+    "type": "CheckAttribute",
+    "branches": [{
+      "condition": "Evaluate",
+      "conditionType": "Equals",
+      "conditionValue": "CHAT",
+      "transition": "3c52961e-581a-42b5-87b9-41c7fee5dbf9"
+    }, {
+      "condition": "NoMatch",
+      "transition": "3c52961e-581a-42b5-87b9-41c7fee5dbf9"
+    }],
+    "parameters": [{
+      "name": "Attribute",
+      "value": "Channel"
+    }, {
+      "name": "Namespace",
+      "value": "System"
+    }],
+    "metadata": {
+      "position": {
+        "x": 249,
+        "y": 7
+      },
+      "conditionMetadata": [{
+        "id": "f8f65d7c-40a7-4cda-8a5e-9a75aed8990a",
+        "operator": {
+          "name": "Equals",
+          "value": "Equals",
+          "shortDisplay": "="
+        },
+        "value": "CHAT"
+      }]
+    }
+  }, {
+    "id": "05c9b198-6508-4fb2-af45-8526c535a05c",
+    "type": "CheckAttribute",
+    "branches": [{
+      "condition": "Evaluate",
+      "conditionType": "Equals",
+      "conditionValue": "CHAT",
+      "transition": "67f2d6ed-c5bc-42cf-9011-b0589ef14103"
+    }, {
+      "condition": "NoMatch",
+      "transition": "35d19e2a-432e-41a6-838d-bb9949910869"
+    }],
+    "parameters": [{
+      "name": "Attribute",
+      "value": "Channel"
+    }, {
+      "name": "Namespace",
+      "value": "System"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1337,
+        "y": 37
+      },
+      "conditionMetadata": [{
+        "id": "5afc9b38-91a7-4529-b9b6-61f09a6ee40b",
+        "operator": {
+          "name": "Equals",
+          "value": "Equals",
+          "shortDisplay": "="
+        },
+        "value": "CHAT"
+      }]
+    }
+  }, {
+    "id": "3c52961e-581a-42b5-87b9-41c7fee5dbf9",
+    "type": "CheckQueueStatus",
+    "branches": [{
+      "condition": "CheckQueueTime",
+      "conditionType": "LessThan",
+      "conditionValue": 300000,
+      "transition": "84e7e723-838f-4012-bafe-ffbda3b81d51"
+    }, {
+      "condition": "NoMatch",
+      "transition": "15445378-0358-427c-8e3e-d4693a07cf8d"
+    }, {
+      "condition": "Error",
+      "transition": "cad6d3f7-e39e-426f-bf32-b99aa549a34b"
+    }],
+    "parameters": [],
+    "metadata": {
+      "position": {
+        "x": 818,
+        "y": 25
+      },
+      "conditionMetadata": [{
+        "id": "b9069a9a-fa03-4596-abba-6662fb60ed91",
+        "attribute": {
+          "name": "Time in Queue",
+          "value": "Time in Queue"
+        },
+        "operator": {
+          "name": "Is less than",
+          "value": "LessThan",
+          "shortDisplay": "<"
+        },
+        "value": "300",
+        "time": "sec."
+      }],
+      "queue": null,
+      "useDynamic": false
+    }
+  }, {
+    "id": "84e7e723-838f-4012-bafe-ffbda3b81d51",
+    "type": "PlayPrompt",
+    "branches": [{
+      "condition": "Success",
+      "transition": "05c9b198-6508-4fb2-af45-8526c535a05c"
+    }],
+    "parameters": [{
+      "name": "Text",
+      "value": "The time in queue is less than 5 minutes.",
+      "namespace": null
+    }, {
+      "name": "TextToSpeechType",
+      "value": "text"
+    }],
+    "metadata": {
+      "position": {
+        "x": 1079,
+        "y": 13
+      },
+      "useDynamic": false
+    }
+  }],
+  "version": "1",
+  "type": "contactFlow",
+  "start": "5cfb3fa1-78a7-4133-b553-ca7198181192",
+  "metadata": {
+    "entryPointPosition": {
+      "x": 20,
+      "y": 20
+    },
+    "snapToGrid": false,
+    "name": "Octank's queue flow",
+    "description": "Puts a customer in queue and gives them the option to be first in queue, last in queue or to be called back.",
+    "type": "contactFlow",
+    "status": "published",
+    "hash": "726372edb4ed3256943eb5db420c803d753440a894c8342eb655a96eaa52eb02"
+  }
+}
