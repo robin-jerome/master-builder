@@ -13,7 +13,8 @@ Resources:
             callback(null,"done");
           };
       Handler: index.handler
-      FunctionName: octank-dynamo-stream-inference-trigger
+      FunctionName: octank-dynamo-inference-trigger
+      Description: Lambda invoked on changes in DynamoDB table
       Role:
         Fn::GetAtt: [InferenceTriggerLambdaRole, Arn]
       Runtime: nodejs12.x
