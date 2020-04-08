@@ -3,7 +3,7 @@
 
 ```
 aws cloudformation create-stack \
-  --stack-name dynamo-stream-lambda \
+  --stack-name octank-inference-stack \
   --template-body file://template.yaml \
   --region us-east-1 \
   --capabilities CAPABILITY_NAMED_IAM \
@@ -14,7 +14,7 @@ aws cloudformation create-stack \
 
 ```
 aws cloudformation update-stack \
-  --stack-name dynamo-stream-lambda \
+  --stack-name octank-inference-stack \
   --template-body file://template.yaml \
   --region us-east-1 \
   --capabilities CAPABILITY_NAMED_IAM \
@@ -24,5 +24,5 @@ aws cloudformation update-stack \
 ## Delete an existing stack
 
 ```
-aws cloudformation delete-stack --stack-name dynamo-stream-lambda --profile <profile-name>
+aws cloudformation delete-stack --stack-name octank-inference-stack --profile <profile-name>
 ```
