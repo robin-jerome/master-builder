@@ -1,13 +1,10 @@
-'use strict';
-
 const AWS = require('aws-sdk');
 const sagemakerruntime = new AWS.SageMakerRuntime({ apiVersion: '2017-05-13', region: 'us-east-2' });
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const sageMakerEp = process.env.SAGEMAKER_ENDPOINT;
 const dynamoTable = process.env.DYNAMODB_TABLE;
 const PRODUCT_ID = 'Fixed Deposit';
-const CUSTOMER_ID = 'asdfg';
-
+const CUSTOMER_ID = 'asdfg'; // TODO: Read from record information
 exports.handler = async (event, context, callback) => {
   console.log(`Received event in SageMaker trigger lambda ${JSON.stringify(event)}`);
   const recordsForInference = event.Records
@@ -52,7 +49,6 @@ exports.handler = async (event, context, callback) => {
       return Promise.reject(err);
     })
 };
-
 const storeInferenceOutputForCustomer = (customerId, productId, isRecommended) => {
   console.log(`Storing product recommendation as '${isRecommended}' for product '${productId}' and customer '${customerId}'`);
   return dynamoDb.update({
@@ -67,7 +63,6 @@ const storeInferenceOutputForCustomer = (customerId, productId, isRecommended) =
     ReturnValues: 'UPDATED_NEW'
   }).promise();
 }
-
 const getInferenceParams = (record) => {
   // TODO: Fetch from comprehension & DB
   return '31,technician,single,secondary,no,102,yes,no,telephone,17,apr,460,2,345,2,failure'
