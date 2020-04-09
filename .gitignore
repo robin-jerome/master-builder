@@ -116,5 +116,5 @@ dist
 
 .DS_Store
 
-stacks/presentation-stack/web-ui/src/utils/request.js
 stacks/presentation-stack/web-ui/build
+stacks/presentation-stack/web-ui/public/settings.js

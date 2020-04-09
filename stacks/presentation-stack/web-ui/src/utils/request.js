@@ -1,7 +1,6 @@
 import Amplify, { API } from "aws-amplify";
 import { retryWrapper } from "./index";
 
-console.log(window);
 const settings = window.apiGwSettings || {};
 const region = settings.region || "eu-west-1";
 
@@ -25,7 +24,7 @@ Amplify.configure({
 
 export default (endpointName, data) =>
 retryWrapper(() =>
-  API.get("apiGatewayApi", "/customers/asdfg", {
+  API.get("apiGatewayApi", "customers/asdfg", {
     headers: {
       'Accept': 'application/json'
     }

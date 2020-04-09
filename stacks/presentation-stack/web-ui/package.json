@@ -13,7 +13,8 @@
   "scripts": {
     "dev": "react-scripts test",
     "start": "export HTTPS=false && react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "aws-deploy": "rm -rf build && npm run build && node deploy.js"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -23,5 +24,8 @@
     "not dead",
     "not ie > 0",
     "not op_mini all"
-  ]
+  ],
+  "devDependencies": {
+    "npm": "^6.14.4"
+  }
 }
