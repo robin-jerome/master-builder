@@ -3,26 +3,15 @@ import React, { useState } from "react";
 import { Container } from "react-bootstrap";
 
 import Header from "./components/Header";
-import ImageMode from "./components/ImageMode";
-import ProjectsSummary from "./components/ProjectsSummary";
-import SettingsHelp from "./components/SettingsHelp";
-import Help from "./components/Help";
+import CustomerSummary from "./components/CustomerSummary";
 
 import gateway from "./utils/gateway";
 
 export default () => {
   const [authState, setAuthState] = useState(undefined);
-  const [currentPage, setCurrentPage] = useState("projects");
-  const [selectedProjectVersion, setSelectedProjectVersion] = useState(
-    undefined
-  );
+  const [currentPage, setCurrentPage] = useState("customer");
 
-  const onHelp = () => setCurrentPage("help");
-  const loadProjectList = () => setCurrentPage("projects");
-  const loadProjectVersion = projectVersionArn => {
-    setSelectedProjectVersion(projectVersionArn);
-    setCurrentPage("image");
-  };
+  const loadCustomer = () => setCurrentPage("customer");
 
   const classNames = ["App"];
   if (authState !== "signedIn") classNames.push("amplify-auth");
@@ -37,23 +26,12 @@ export default () => {
           <>
             <Header
               currentPage={currentPage}
-              onHelp={onHelp}
-              loadProjectList={loadProjectList}
+              loadCustomer={loadCustomer}
             />
             <Container>
-              <SettingsHelp show={!window.apiGwSettings} />
-              {currentPage === "projects" && (
-                <ProjectsSummary
+              {currentPage === "customer" && (
+                <CustomerSummary
                   gateway={gateway}
-                  onHelp={onHelp}
-                  onVersionClick={loadProjectVersion}
-                />
-              )}
-              {currentPage === "help" && <Help />}
-              {currentPage === "image" && (
-                <ImageMode
-                  gateway={gateway}
-                  projectVersionArn={selectedProjectVersion}
                 />
               )}
             </Container>

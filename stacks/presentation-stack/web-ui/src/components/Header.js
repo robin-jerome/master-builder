@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Container, Nav, Navbar } from "react-bootstrap";
+import { Container, Nav, Navbar } from "react-bootstrap";
 
 export default ({ currentPage, onHelp, loadProjectList }) => (
   <Navbar
@@ -13,16 +13,7 @@ export default ({ currentPage, onHelp, loadProjectList }) => (
       <Navbar.Toggle />
       <Navbar.Collapse>
         <Nav className="ml-auto">
-          {currentPage !== "projects" && (
-            <Button onClick={loadProjectList} variant="primary">
-              Projects
-            </Button>
-          )}
-          {currentPage !== "help" && (
-            <Button onClick={onHelp} variant="light">
-              Help
-            </Button>
-          )}
+          {currentPage !== "customer"}
         </Nav>
       </Navbar.Collapse>
     </Container>

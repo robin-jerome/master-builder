@@ -1,24 +1,15 @@
 export const mapResults = (data, type) => {
-  const parseArn = arn => {
-    const s = arn.split(":")[5].split("/");
-    return [s[1], s[3]];
+  const result = {
+    Recommended: [],
+    'Not Recommended': []
   };
-
-  const result = {};
-
-  data.forEach(project =>
-    project.ProjectVersionDescriptions.forEach(version => {
-      const [projectName, versionName] = parseArn(version.ProjectVersionArn);
-      if (!type || version.Status === type) {
-        result[projectName] = result[projectName] || [];
-        result[projectName].unshift({
-          version: versionName,
-          details: version
-        });
-      }
-    })
-  );
-
+  data.Item.recommendations.forEach(r => {
+    if (r.isRecommended) {
+      result.Recommended.push(r.productId)
+    } else {
+      result['Not Recommended'].push(r.productId)
+    }
+  });
   return result;
 };
 

@@ -13,9 +13,7 @@
   "scripts": {
     "dev": "react-scripts test",
     "start": "export HTTPS=false && react-scripts start",
-    "build": "react-scripts build",
-    "test": "export CI=true && react-scripts test",
-    "eject": "react-scripts eject"
+    "build": "react-scripts build"
   },
   "eslintConfig": {
     "extends": "react-app"
