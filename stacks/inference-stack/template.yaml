@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "Octank demo - Triggering recommendation inference"
+Description: "Octank demo - Triggering recommendation inference. This stack creates a Dynamo DB, its correspnding stream and a lambda function that listens to this stream and calls a sagemaker inference endpoint. Further it writes the inferences back to the Dynamo DB"
 
 Parameters:
   SageMakerEndpointName:
