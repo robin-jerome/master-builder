@@ -283,3 +283,19 @@ Outputs:
   CognitoUserPoolClientId:
     Description: "Cognito User Pool Client Id"
     Value: !Ref CognitoUserPoolClient
+
+  CognitoIdentityPoolId:
+    Description: "Cognito Identity Pool Client Id"
+    Value: !Ref CognitoIdentityPool
+
+  CloudFrontDistributionId:
+    Description: "CloudFront distributionId"
+    Value: !Ref CloudFrontDistribution
+
+  WebUIBucket:
+    Description: "Web UI bucket"
+    Value: !Ref WebUIBucket
+
+  ApiGateway:
+    Description: "Api Gateway"
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Dev/"

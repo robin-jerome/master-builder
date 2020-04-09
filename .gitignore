@@ -115,3 +115,6 @@ dist
 .pnp.*
 
 .DS_Store
+
+stacks/presentation-stack/web-ui/src/utils/request.js
+stacks/presentation-stack/web-ui/build
