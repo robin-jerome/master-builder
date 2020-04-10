@@ -24,6 +24,7 @@ var credentials = new AWS.SharedIniFileCredentials({ profile: awsProfile });
 AWS.config.credentials = credentials;
 const cloudformation = new AWS.CloudFormation({ apiVersion: '2010-05-15', region: awsRegion });
 const s3 = new AWS.S3({ apiVersion: '2006-03-01', signatureVersion: 'v4' });
+const cloudfront = new AWS.CloudFront({ apiVersion: '2019-03-26' });
 console.log(`CloudFormation stack with name '${stackName}' will be described to fetch UI deployment params`);
 
 const findStackOutputValueByKey = (key, outputs) => {
@@ -77,7 +78,25 @@ return cloudformation.describeStacks({ StackName: stackName }).promise()
       fs.writeFileSync(`${UPLOAD_FOLDER}/settings.js`, fileContent);
       console.log(`Successfully updated settings file in directory - ${UPLOAD_FOLDER}`);
       const bucket = findStackOutputValueByKey('WebUIBucket', outputs);
-      return Promise.resolve(s3Upload(UPLOAD_FOLDER, bucket));
+      const distributionId = findStackOutputValueByKey('CloudFrontDistributionId', outputs);
+      return Promise.resolve(s3Upload(UPLOAD_FOLDER, bucket)
+        .then(() => {
+          console.log('S3 Upload completed successfully');
+          return cloudfront.createInvalidation({
+            DistributionId: distributionId,
+            InvalidationBatch: {
+              CallerReference: new Date().getTime().toString(),
+              Paths: {
+                Quantity: 1,
+                Items: ['/*']
+              }
+            }
+          }).promise();
+        })
+        .then(() => {
+          console.log(`Cloudfront invalidation created for distribution - '${distributionId}'`);
+        })
+      );
     } else {
       console.error(`Stack with name ${stackName} does not exist yet. Operation unsuccessful`);
       return Promise.reject(new Error('Invalid stack name'));
