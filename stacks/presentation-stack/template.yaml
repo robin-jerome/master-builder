@@ -28,9 +28,9 @@ Resources:
       Cors:
         AllowMethods: "'OPTIONS, GET'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'http://localhost:3000'"
+        AllowOrigin: "'*'"
         MaxAge: "'600'"
-        AllowCredentials: True
+  #      AllowCredentials: True
   #      Auth:
   #        Authorizers:
   #          MyCognitoAuthorizer:

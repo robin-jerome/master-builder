@@ -26,6 +26,9 @@
     "not op_mini all"
   ],
   "devDependencies": {
-    "npm": "^6.14.4"
+    "async": "^3.2.0",
+    "mime-types": "^2.1.26",
+    "npm": "^6.14.4",
+    "recursive-readdir": "^2.2.2"
   }
 }
