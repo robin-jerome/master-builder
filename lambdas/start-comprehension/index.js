@@ -27,7 +27,7 @@ exports.handler = (event, context, callback) => {
         ]).then(([entities, sentiments]) => {
           console.log(`Detected entities: ${JSON.stringify(entities)}`);
           console.log(`Detected sentiments: ${JSON.stringify(sentiments)}`);
-          return storeToDynamoDB('asdfg', entities, sentiments);
+          return storeToDynamoDB('robinjer@amazon.com', entities, sentiments);
         })
         .then(() => {
           callback(null, {});

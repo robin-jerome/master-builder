@@ -4,7 +4,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const sageMakerEp = process.env.SAGEMAKER_ENDPOINT;
 const dynamoTable = process.env.DYNAMODB_TABLE;
 const PRODUCT_ID = 'Fixed Deposit';
-const CUSTOMER_ID = 'asdfg'; // TODO: Read from record information
+const CUSTOMER_ID = 'robinjer@amazon.com'; // TODO: Read from record information
 exports.handler = async (event, context, callback) => {
   console.log(`Received event in SageMaker trigger lambda ${JSON.stringify(event)}`);
   const recordsForInference = event.Records

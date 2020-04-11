@@ -3,8 +3,8 @@
     "esversion": 6
   },
   "editor.tabSize": 2,
-  "beautify.onSave": false,
-  "editor.formatOnSave": false,
+  "beautify.onSave": true,
+  "editor.formatOnSave": true,
   "beautify.JSfiles": [
     "js",
     "json",

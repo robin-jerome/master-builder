@@ -23,10 +23,8 @@ Amplify.configure({
 });
 
 export default (endpointName, data) =>
-retryWrapper(() =>
-  API.get("apiGatewayApi", "customers/asdfg", {
-    headers: {
-      'Accept': 'application/json'
-    }
-  })
-);
+retryWrapper(() => API.get("apiGatewayApi", `customers/${data.username}`, {
+  headers: {
+    'Accept': 'application/json'
+  }
+}));
