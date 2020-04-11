@@ -1,111 +1,73 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "Octank demo - Triggering recommendation inference. This stack creates a Dynamo DB, its correspnding stream and a lambda function that listens to this stream and calls a sagemaker inference endpoint. Further it writes the inferences back to the Dynamo DB"
+Description: "Octank demo - Comprehension stack"
 
 Parameters:
-  SageMakerEndpointName:
+  StepFnTriggerLambdaName:
     Type: String
-    Default: octank-marketing-inference
-  DynamoDbTable:
+    Default: octank-step-fn-trigger
+  StartTranscriptionLambdaName:
+    Type: String
+    Default: octank-transcribe-trigger
+  CheckTranscriptionStatusLambdaName:
+    Type: String
+    Default: octank-check-transcribe-status
+  GetTranscriptionOutputLambdaName:
+    Type: String
+    Default: octank-get-transcribe-output
+  ComprehendTriggerAndStoreLambdaName:
+    Type: String
+    Default: octank-comprehend-trigger-and-store
+  DynamoDBTableName:
     Type: String
     Default: octank-customer-table
-
 Resources:
-  InferenceTriggerFunction:
+  StepFunctionTriggerLambda:
     Type: AWS::Lambda::Function
     Properties:
       Code:
         ZipFile: >
-          const AWS = require('aws-sdk');
+          'use strict';
 
-          const sagemakerruntime = new AWS.SageMakerRuntime({ apiVersion: '2017-05-13', region: 'us-east-2' });
+          const aws = require('aws-sdk');
+          var stepfunctions = new aws.StepFunctions();
+          const s3 = new aws.S3({ apiVersion: '2006-03-01' });
 
-          const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
-          const sageMakerEp = process.env.SAGEMAKER_ENDPOINT;
-
-          const dynamoTable = process.env.DYNAMODB_TABLE;
-
-          const PRODUCT_ID = 'Fixed Deposit';
-
-          const CUSTOMER_ID = 'robinjer@amazon.com'; // TODO: Read from record information
-
-          exports.handler = async (event, context, callback) => {
-            console.log(`Received event in SageMaker trigger lambda ${JSON.stringify(event)}`);
-            const recordsForInference = event.Records
-              .filter(r => {
-                if (r.eventName === 'REMOVE') return false;
-                if (r.dynamodb && r.dynamodb.NewImage) { // Records with entities and no recommendations
-                  return r.dynamodb.NewImage.recommendations.L.length === 0 /* && r.dynamodb.NewImage.entities.L.length > 0 */ //TODO: Remove after entities are populated
-                }
-                return false;
-              });
-            const inferencePromises = recordsForInference.map(r => {
-              const inferenceParams = getInferenceParams(r);
-              return sagemakerruntime.invokeEndpoint({
-                EndpointName: sageMakerEp,
-                ContentType: 'text/csv',
-                Accept: 'text/csv',
-                Body: inferenceParams
-              }).promise();
+          exports.handler = (event, context, callback) => {
+            const bucket = event.Records[0].s3.bucket.name;
+            const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+            const params = { Bucket: bucket, Key: key };
+            s3.getObject(params, (err, data) => {
+              if (err) {
+                console.log(err);
+                const message = `Error getting object ${key} from bucket ${bucket}. Make sure they exist and your bucket is in the same region as this function.`;
+                console.log(message);
+                callback(message);
+              } else {
+                var job_name = key.replace("/", "-");
+                var stepparams = {
+                  "stateMachineArn": process.env.STEP_FUNCTIONS_ARN,
+                  "input": "{\"s3URL\": \"https://s3.amazonaws.com/" + bucket + "/" + key + "\",\"JOB_NAME\": \"" + job_name + "\"}"
+                };
+                stepfunctions.startExecution(stepparams, function(err, data) {
+                  if (err) console.log(err, err.stack); // an error occurred
+                  else console.log(data); // successful response
+                });
+                callback(null, data.ContentType);
+              }
             });
-            return Promise.all(inferencePromises)
-              .then(respArray => {
-                const recommOut = respArray.map(resp => {
-                  const body = resp.Body.toString();
-                  if (body.includes('yes')) { // Add to recommendations
-                    console.log(`SageMaker thinks that the product can be recommended to the customer`);
-                    return true;
-                  } else if (body.includes('no')) { // Do not add to recommendations
-                    console.log(`SageMaker thinks that the product should not be recommended to the customer`);
-                    return false;
-                  }
-                });
-                const storePromises = [];
-                recordsForInference.forEach((r, index) => {
-                  const isRecommended = recommOut[index];
-                  // Todo Fetch customer id from 'r'
-                  storePromises.push(storeInferenceOutputForCustomer(CUSTOMER_ID, PRODUCT_ID, isRecommended));
-                });
-                return Promise.all(storePromises);
-              })
-              .catch(err => {
-                console.error(`Errow while triggering inference from SageMaker endpoint - ${JSON.stringify(err)}`);
-                return Promise.reject(err);
-              })
-          };
-
-          const storeInferenceOutputForCustomer = (customerId, productId, isRecommended) => {
-            console.log(`Storing product recommendation as '${isRecommended}' for product '${productId}' and customer '${customerId}'`);
-            return dynamoDb.update({
-              TableName: dynamoTable,
-              Key: {
-                'customerId': customerId
-              },
-              UpdateExpression: "set recommendations = list_append(recommendations, :r)",
-              ExpressionAttributeValues: {
-                ":r": [{ "productId": productId, "isRecommended": isRecommended }]
-              },
-              ReturnValues: 'UPDATED_NEW'
-            }).promise();
-          }
-
-          const getInferenceParams = (record) => {
-            // TODO: Fetch from comprehension & DB
-            return '31,technician,single,secondary,no,102,yes,no,telephone,17,apr,460,2,345,2,failure'
           };
       Handler: index.handler
-      FunctionName: octank-dynamo-inference-trigger
-      Description: Lambda invoked on changes in DynamoDB table
+      FunctionName: !Ref StepFnTriggerLambdaName
+      Description: NEW - Lambda invoked on changes in DynamoDB table
       Role:
-        Fn::GetAtt: [InferenceTriggerLambdaRole, Arn]
+        Fn::GetAtt: [StepFunctionTriggerLambdaRole, Arn]
       Runtime: nodejs12.x
       Timeout: 300
       Environment:
         Variables:
-          DYNAMODB_TABLE: !Ref DynamoDbTable
-          SAGEMAKER_ENDPOINT: !Ref SageMakerEndpointName
-  InferenceTriggerLambdaRole:
+          STEP_FUNCTIONS_ARN: "asdfg"
+  StepFunctionTriggerLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -119,7 +81,7 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: InferenceTriggerLambdaPolicy
+        - PolicyName: StepFunctionTriggerLambdaPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -129,40 +91,275 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: arn:aws:logs:*:*:*
+  StartTranscriptionLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          'use strict';
+
+          const AWS = require('aws-sdk');
+          const transcribeservice = new AWS.TranscribeService();
+          exports.handler = (event, context, callback) => {
+            var parts = event.JOB_NAME.split("/");
+            var params = {
+              LanguageCode: 'en-US',
+              Media: { /* required */
+                MediaFileUri: event.s3URL + ""
+              },
+              MediaFormat: 'wav',
+              TranscriptionJobName: parts[parts.length - 1]
+            };
+            transcribeservice.startTranscriptionJob(params, function(err, data) {
+              if (err) console.log(err, err.stack); // an error occurred
+              else     {
+              console.log(data);           // successful response
+              event.wait_time = 10;
+              event.JOB_NAME = data.TranscriptionJob.TranscriptionJobName;
+              callback(null, event);
+              }
+            });
+          };
+      Handler: index.handler
+      FunctionName: !Ref StartTranscriptionLambdaName
+      Description: NEW - Trigger transcription job for call recordings
+      Role:
+        Fn::GetAtt: [StartTranscriptionLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+  StartTranscriptionLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: StartTranscriptionLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
               - Effect: Allow
                 Action:
-                  - dynamodb:DescribeStream
-                  - dynamodb:GetRecords
-                  - dynamodb:GetShardIterator
-                  - dynamodb:ListStreams
-                  - dynamodb:UpdateItem
-                Resource: "*"
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+  CheckTranscriptionStatusLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          'use strict';
+          var AWS = require('aws-sdk');
+          var transcribeservice = new AWS.TranscribeService();
+
+          exports.handler = (event, context, callback) => {
+              var params = {
+                TranscriptionJobName: event.JOB_NAME /* required */
+              };
+              transcribeservice.getTranscriptionJob(params, function(err, data) {
+                if (err) console.log(err, err.stack); // an error occurred
+                else     console.log(data);           // successful response
+                event.STATUS = data.TranscriptionJob.TranscriptionJobStatus;
+                event.Transcript =data.TranscriptionJob.Transcript;
+                callback(null,event);
+              });
+          };
+      Handler: index.handler
+      FunctionName: !Ref CheckTranscriptionStatusLambdaName
+      Description: NEW - Check status of transcription job
+      Role:
+        Fn::GetAtt: [CheckTranscriptionStatusLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+  CheckTranscriptionStatusLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: CheckTranscriptionStatusLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
               - Effect: Allow
                 Action:
-                  - sagemaker:InvokeEndpoint
-                Resource: "*"
-  DynamoDBTable:
-    Type: AWS::DynamoDB::Table
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+  GetTranscriptionOutputLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      TableName: octank-customer-table
-      AttributeDefinitions:
-        - AttributeName: customerId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: customerId
-          KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
-      StreamSpecification:
-        StreamViewType: NEW_IMAGE
-  DynamoDBTableStream:
-    Type: AWS::Lambda::EventSourceMapping
+      Code:
+        ZipFile: >
+          'use strict';
+          var AWS = require('aws-sdk');
+          var transcribeservice = new AWS.TranscribeService();
+
+          exports.handler = (event, context, callback) => {
+
+              var params = {
+                TranscriptionJobName: event.JOB_NAME /* required */
+              };
+              transcribeservice.getTranscriptionJob(params, function(err, data) {
+                if (err) console.log(err, err.stack); // an error occurred
+                else     console.log(data);           // successful response
+                event.STATUS = data.TranscriptionJob.TranscriptionJobStatus;
+                event.TranscriptFileUri =data.TranscriptionJob.Transcript.TranscriptFileUri;
+                callback(null,event);
+              });
+          };
+      Handler: index.handler
+      FunctionName: !Ref GetTranscriptionOutputLambdaName
+      Description: NEW - Get transcription output
+      Role:
+        Fn::GetAtt: [GetTranscriptionOutputLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+  GetTranscriptionOutputLambdaRole:
+    Type: AWS::IAM::Role
     Properties:
-      BatchSize: 1
-      Enabled: True
-      EventSourceArn:
-        Fn::GetAtt: [DynamoDBTable, StreamArn]
-      FunctionName:
-        Fn::GetAtt: [InferenceTriggerFunction, Arn]
-      StartingPosition: LATEST
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: GetTranscriptionOutputLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+  ComprehendTriggerAndStoreLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          'use strict';
+          const https = require('https');
+          const AWS = require('aws-sdk');
+          const comprehend = new AWS.Comprehend({ apiVersion: '2017-11-27' });
+          const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+          exports.handler = (event, context, callback) => {
+            var requestUrl = event.TranscriptFileUri;
+            console.log(`Transcript file will be fetched from ${requestUrl}`);
+            console.log(`Received event in lambda ${JSON.stringify(event)}`);
+            https.get(requestUrl, (res) => {
+              var chunks = [];
+              res.on("data", function(chunk) {
+                chunks.push(chunk);
+              });
+              res.on("end", function() {
+                var body = Buffer.concat(chunks);
+                var results = JSON.parse(body);
+                var transcript = results.results.transcripts[0].transcript;
+                console.log(`Transcribed text "${transcript}"`);
+                var params = {
+                  LanguageCode: "en",
+                  Text: transcript + ""
+                };
+                Promise.all([
+                    comprehend.detectEntities(params).promise(),
+                    comprehend.detectSentiment(params).promise()
+                  ]).then(([entities, sentiments]) => {
+                    console.log(`Detected entities: ${JSON.stringify(entities)}`);
+                    console.log(`Detected sentiments: ${JSON.stringify(sentiments)}`);
+                    return storeToDynamoDB('robinjer@amazon.com', entities, sentiments);
+                  })
+                  .then(() => {
+                    callback(null, {});
+                  })
+                  .catch(err => {
+                    console.log(err, err.stack);
+                  });
+              });
+
+            }).on('error', (e) => {
+              console.error(e);
+            });
+          };
+
+          const storeToDynamoDB = (customerId, entities, sentiments) => {
+            const timestamp = new Date().getTime();
+            const params = {
+              TableName: process.env.DYNAMODB_TABLE,
+              Item: {
+                customerId: customerId,
+                entities: entities,
+                sentiments: sentiments,
+                recommendations: [],
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              }
+            }
+            return dynamoDb.put(params).promise()
+              .then(data => {
+                console.log(`Stored entities and sentiments in DynamoDB for customer: ${customerId}`);
+                return Promise.resolve(data);
+              })
+              .catch(err => {
+                console.error(`Failed to store entities and sentiments in DynamoDB for customer: ${customerId}, error : ${JSON.stringify(err)}`);
+                return Promise.reject(err);
+              })
+          };
+      Handler: index.handler
+      FunctionName: !Ref ComprehendTriggerAndStoreLambdaName
+      Description: NEW - Start comprehend job when transcription is complete and store to Dynamo DB
+      Role:
+        Fn::GetAtt: [ComprehendTriggerAndStoreLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref DynamoDBTableName
+  ComprehendTriggerAndStoreLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: ComprehendTriggerAndStoreLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
