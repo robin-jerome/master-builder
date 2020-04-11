@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 
 Transform: AWS::Serverless-2016-10-31
 
-Description: API Gateway + Cognito User Pools Auth
+Description: "Octank demo - Presenting recommendation to user. This stack creates an API Gateway backed by a lambda function, SPA frontend application hosted in S3 backed by CloudFront, AWS Cognito User Pool, Identity Pools and Demo User"
 
 Parameters:
   CognitoUserPoolName:
