@@ -1,7 +1,8 @@
 import React from "react";
 import { Container, Nav, Navbar } from "react-bootstrap";
+import { SignOut } from 'aws-amplify-react';
 
-export default ({ currentPage, onHelp, loadProjectList }) => (
+export default ({ currentPage }) => (
   <Navbar
     style={{ backgroundColor: "#232f3e", marginBottom: "20px" }}
     variant="dark"
@@ -16,6 +17,7 @@ export default ({ currentPage, onHelp, loadProjectList }) => (
           {currentPage !== "customer"}
         </Nav>
       </Navbar.Collapse>
+      <SignOut />
     </Container>
   </Navbar>
 );

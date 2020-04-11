@@ -26,3 +26,17 @@ aws cloudformation update-stack \
 ```
 aws cloudformation delete-stack --stack-name cognito-serverless-api --profile aws-sandbox
 ```
+
+## Deploying the UI
+
+After the stack creation/updating is complete, execute the npm command to upload Web UI artifacts to S3
+
+```
+npm run aws-deploy <stack-name> <region> <aws-profile-name>
+```
+
+eg:
+
+```
+npm run aws-deploy cognito-serverless-api us-east-1 aws-sandbox
+```
