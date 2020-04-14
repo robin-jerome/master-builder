@@ -92,9 +92,21 @@ Resources:
           }
 
           const getInferenceParams = (record) => {
-            // TODO: Fetch from comprehension & DB
-            // return '31,technician,single,secondary,no,102,yes,no,telephone,17,apr,460,2,345,2,failure'
-            return '46,management,divorced,tertiary,no,624,no,no,cellular,17,sep,336,2,183,2,success'
+            const demographics = record.dynamodb.NewImage.demographics;
+            const keyOrder = [
+                              'age', 'job', 'marital', 'education', 'default', 'balance', 'housing', 'loan',
+                              'contact', 'day', 'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome'
+                             ];
+            let inferenceParams = [];
+            if (demographics.M && Object.keys(demographics.M).length > 0) {
+              keyOrder.forEach(k => {
+                const obj = demographics.M[k];
+                inferenceParams.push(obj.S || obj.N)
+              });   
+            } else { // No inference to be performed.
+              throw new Error('Not enough datapoints to perform inference');
+            }
+            return inferenceParams.join(',')
           };
       Handler: index.handler
       FunctionName: octank-dynamo-inference-trigger
