@@ -28,8 +28,6 @@ Resources:
 
           const PRODUCT_ID = 'Fixed Deposit';
 
-          const CUSTOMER_ID = 'robinjer@amazon.com'; // TODO: Read from record information
-
           exports.handler = async (event, context, callback) => {
             console.log(`Received event in SageMaker trigger lambda ${JSON.stringify(event)}`);
             const recordsForInference = event.Records
@@ -64,8 +62,9 @@ Resources:
                 const storePromises = [];
                 recordsForInference.forEach((r, index) => {
                   const isRecommended = recommOut[index];
+                  const customerId = r.dynamodb.Keys.customerId.S;
                   // Todo Fetch customer id from 'r'
-                  storePromises.push(storeInferenceOutputForCustomer(CUSTOMER_ID, PRODUCT_ID, isRecommended));
+                  storePromises.push(storeInferenceOutputForCustomer(customerId, PRODUCT_ID, isRecommended));
                 });
                 return Promise.all(storePromises);
               })
@@ -92,7 +91,8 @@ Resources:
 
           const getInferenceParams = (record) => {
             // TODO: Fetch from comprehension & DB
-            return '31,technician,single,secondary,no,102,yes,no,telephone,17,apr,460,2,345,2,failure'
+            // return '31,technician,single,secondary,no,102,yes,no,telephone,17,apr,460,2,345,2,failure'
+            return '46,management,divorced,tertiary,no,624,no,no,cellular,17,sep,336,2,183,2,success'
           };
       Handler: index.handler
       FunctionName: octank-dynamo-inference-trigger

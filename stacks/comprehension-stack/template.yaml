@@ -907,7 +907,7 @@ Resources:
 
           exports.handler = (event, context, callback) => {
             console.log(`Detected entities: ${JSON.stringify(event.entities)}`);
-            return storeToDynamoDB('robinjer@amazon.com', event.enitities, [])
+            return storeToDynamoDB('robinjer@amazon.com', event.enitities)
             .then(() => {
               callback(null, event);
             })
@@ -916,14 +916,13 @@ Resources:
             });
           };
             
-          const storeToDynamoDB = (customerId, entities, sentiments) => {
+          const storeToDynamoDB = (customerId, entities) => {
             const timestamp = new Date().getTime();
             const params = {
               TableName: process.env.DYNAMODB_TABLE,
               Item: {
                 customerId: customerId,
                 entities: entities,
-                sentiments: sentiments,
                 recommendations: [],
                 createdAt: timestamp,
                 updatedAt: timestamp,
