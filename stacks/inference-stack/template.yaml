@@ -75,15 +75,17 @@ Resources:
           };
 
           const storeInferenceOutputForCustomer = (customerId, productId, isRecommended) => {
+            const timestamp = new Date().getTime();
             console.log(`Storing product recommendation as '${isRecommended}' for product '${productId}' and customer '${customerId}'`);
             return dynamoDb.update({
               TableName: dynamoTable,
               Key: {
                 'customerId': customerId
               },
-              UpdateExpression: "set recommendations = list_append(recommendations, :r)",
+              UpdateExpression: "set recommendations = list_append(recommendations, :r), updatedAt = :t",
               ExpressionAttributeValues: {
-                ":r": [{ "productId": productId, "isRecommended": isRecommended }]
+                ":r": [{ "productId": productId, "isRecommended": isRecommended }],
+                ":t": timestamp
               },
               ReturnValues: 'UPDATED_NEW'
             }).promise();
