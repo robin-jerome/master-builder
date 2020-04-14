@@ -15,9 +15,9 @@ Parameters:
   GetTranscriptionOutputLambdaName:
     Type: String
     Default: octank-get-transcribe-output
-  ComprehendTriggerAndStoreLambdaName:
+  ComprehendTriggerLambdaName:
     Type: String
-    Default: octank-comprehend-trigger-and-store
+    Default: octank-comprehend-trigger
   DynamoDBTableName:
     Type: String
     Default: octank-customer-table
@@ -30,6 +30,24 @@ Parameters:
   CustomResourceLambdaFunctionName:
     Type: String
     Default: octank-custom-resource-lambda
+  ComprehendInputBucketName:
+    Type: String
+    Default: octank-comprehend-input-bucket
+  ComprehendOutputBucketName:
+    Type: String
+    Default: octank-comprehend-output-bucket
+  CustomEntityRecognizerArn:
+    Type: String
+    Default: "arn:aws:comprehend:us-east-1:197234178237:entity-recognizer/octank-invenstment-entity-recognizer-copy"
+  CheckComprehendStatusLambdaName:
+    Type: String
+    Default: octank-check-comprehend-status
+  GetComprehendOutputLambdaName:
+    Type: String
+    Default: octank-get-comprehend-output
+  StoreComprehendOutputLambdaName:
+    Type: String
+    Default: octank-store-comprehend-output
 Resources:
   StepFunctionTriggerLambda:
     Type: AWS::Lambda::Function
@@ -48,19 +66,19 @@ Resources:
             const params = { Bucket: bucket, Key: key };
             if (!key.endsWith(".wav")) {
               console.log('S3 upload trigger corresponds to an object that is not an audio file. No transcribe will be triggered');
-              callback(null, {});
+              callback(null, event);
             } else {
                 s3.getObject(params, (err, data) => {
                 if (err) {
                   console.log(err);
                   const message = `Error getting object ${key} from bucket ${bucket}. Make sure they exist and your bucket is in the same region as this function.`;
                   console.log(message);
-                  callback(message);
+                  callback(message, event);
                 } else {
                   var job_name = key.replace("/", "-");
                   var stepparams = {
                     "stateMachineArn": process.env.STEP_FUNCTIONS_ARN,
-                    "input": "{\"s3URL\": \"https://s3.amazonaws.com/" + bucket + "/" + key + "\",\"JOB_NAME\": \"" + job_name + "\"}"
+                    "input": "{\"s3URL\": \"https://s3.amazonaws.com/" + bucket + "/" + key + "\",\"TRANSCRIBE_JOB_NAME\": \"" + job_name + "\"}"
                   };
                   stepfunctions.startExecution(stepparams, function(err, data) {
                     if (err) console.log(err, err.stack); // an error occurred
@@ -125,10 +143,10 @@ Resources:
           const AWS = require('aws-sdk');
           const transcribeservice = new AWS.TranscribeService();
           exports.handler = (event, context, callback) => {
-            var parts = event.JOB_NAME.split("/");
+            var parts = event.TRANSCRIBE_JOB_NAME.split("/");
             var params = {
               LanguageCode: 'en-US',
-              Media: { /* required */
+              Media: {
                 MediaFileUri: event.s3URL + ""
               },
               MediaFormat: 'wav',
@@ -138,8 +156,8 @@ Resources:
               if (err) console.log(err, err.stack); // an error occurred
               else     {
               console.log(data);           // successful response
-              event.wait_time = 10;
-              event.JOB_NAME = data.TranscriptionJob.TranscriptionJobName;
+              event.TRANSCRIBE_WAIT_TIME = 30;
+              event.TRANSCRIBE_JOB_NAME = data.TranscriptionJob.TranscriptionJobName;
               callback(null, event);
               }
             });
@@ -198,14 +216,14 @@ Resources:
 
           exports.handler = (event, context, callback) => {
               var params = {
-                TranscriptionJobName: event.JOB_NAME /* required */
+                TranscriptionJobName: event.TRANSCRIBE_JOB_NAME
               };
               transcribeservice.getTranscriptionJob(params, function(err, data) {
                 if (err) console.log(err, err.stack); // an error occurred
                 else     console.log(data);           // successful response
-                event.STATUS = data.TranscriptionJob.TranscriptionJobStatus;
+                event.TRANSCRIBE_STATUS = data.TranscriptionJob.TranscriptionJobStatus;
                 event.Transcript =data.TranscriptionJob.Transcript;
-                callback(null,event);
+                callback(null, event);
               });
           };
       Handler: index.handler
@@ -256,14 +274,14 @@ Resources:
           exports.handler = (event, context, callback) => {
 
               var params = {
-                TranscriptionJobName: event.JOB_NAME /* required */
+                TranscriptionJobName: event.TRANSCRIBE_JOB_NAME
               };
               transcribeservice.getTranscriptionJob(params, function(err, data) {
                 if (err) console.log(err, err.stack); // an error occurred
                 else     console.log(data);           // successful response
-                event.STATUS = data.TranscriptionJob.TranscriptionJobStatus;
+                event.TRANSCRIBE_STATUS = data.TranscriptionJob.TranscriptionJobStatus;
                 event.TranscriptFileUri =data.TranscriptionJob.Transcript.TranscriptFileUri;
-                callback(null,event);
+                callback(null, event);
               });
           };
       Handler: index.handler
@@ -301,7 +319,7 @@ Resources:
                 Action:
                   - transcribe:GetTranscriptionJob
                 Resource: "*"
-  ComprehendTriggerAndStoreLambda:
+  ComprehendTriggerLambda:
     Type: AWS::Lambda::Function
     Properties:
       Code:
@@ -310,7 +328,7 @@ Resources:
           const https = require('https');
           const AWS = require('aws-sdk');
           const comprehend = new AWS.Comprehend({ apiVersion: '2017-11-27' });
-          const dynamoDb = new AWS.DynamoDB.DocumentClient();
+          const s3 = new AWS.S3({ apiVersion: '2006-03-01', signatureVersion: 'v4' });
 
           exports.handler = (event, context, callback) => {
             var requestUrl = event.TranscriptFileUri;
@@ -326,65 +344,65 @@ Resources:
                 var results = JSON.parse(body);
                 var transcript = results.results.transcripts[0].transcript;
                 console.log(`Transcribed text "${transcript}"`);
-                var params = {
+                var comprehendParams = {
                   LanguageCode: "en",
                   Text: transcript + ""
                 };
-                Promise.all([
-                    comprehend.detectEntities(params).promise(),
-                    comprehend.detectSentiment(params).promise()
-                  ]).then(([entities, sentiments]) => {
-                    console.log(`Detected entities: ${JSON.stringify(entities)}`);
-                    console.log(`Detected sentiments: ${JSON.stringify(sentiments)}`);
-                    return storeToDynamoDB('robinjer@amazon.com', entities, sentiments);
-                  })
+                const fileName = event.TRANSCRIBE_JOB_NAME.split('.')[0];
+                const s3UploadParams = {
+                  ACL: 'private',
+                  Key: fileName,
+                  Bucket: process.env.COMPREHEND_INPUT_BUCKET,
+                  Body: transcript,
+                  ContentType: "text/plain"
+                };
+                s3.upload(s3UploadParams).promise()
                   .then(() => {
-                    callback(null, {});
+                    console.log(`Uploaded translation to S3 as key ${fileName}`);
+                    event.COMPREHEND_WAIT_TIME = 30;
+                    return comprehend.startEntitiesDetectionJob({
+                      DataAccessRoleArn: process.env.COMPREHEND_DATA_ACCESS_ROLE,
+                      InputDataConfig: {
+                        S3Uri: `s3://${process.env.COMPREHEND_INPUT_BUCKET}/${fileName}`,
+                        InputFormat: 'ONE_DOC_PER_FILE'
+                      },
+                      LanguageCode: 'en',
+                      OutputDataConfig: {
+                        S3Uri: `s3://${process.env.COMPREHEND_OUTPUT_BUCKET}`
+                      },
+                      EntityRecognizerArn: process.env.CUSTOM_ENTITY_RECOGNIZER_ARN,
+                      JobName: fileName
+                    }).promise();
+                  })
+                  .then(data => {
+                    event.COMPREHEND_JOB_ID = data.JobId;
+                    console.log('Custom entity recognition triggered');
+                    callback(null, event);
                   })
                   .catch(err => {
                     console.log(err, err.stack);
                   });
               });
-
             }).on('error', (e) => {
               console.error(e);
             });
           };
 
-          const storeToDynamoDB = (customerId, entities, sentiments) => {
-            const timestamp = new Date().getTime();
-            const params = {
-              TableName: process.env.DYNAMODB_TABLE,
-              Item: {
-                customerId: customerId,
-                entities: entities,
-                sentiments: sentiments,
-                recommendations: [],
-                createdAt: timestamp,
-                updatedAt: timestamp,
-              }
-            }
-            return dynamoDb.put(params).promise()
-              .then(data => {
-                console.log(`Stored entities and sentiments in DynamoDB for customer: ${customerId}`);
-                return Promise.resolve(data);
-              })
-              .catch(err => {
-                console.error(`Failed to store entities and sentiments in DynamoDB for customer: ${customerId}, error : ${JSON.stringify(err)}`);
-                return Promise.reject(err);
-              })
-          };
       Handler: index.handler
-      FunctionName: !Ref ComprehendTriggerAndStoreLambdaName
+      FunctionName: !Ref ComprehendTriggerLambdaName
       Description: Start comprehend job when transcription is complete and store to Dynamo DB
       Role:
-        Fn::GetAtt: [ComprehendTriggerAndStoreLambdaRole, Arn]
+        Fn::GetAtt: [ComprehendTriggerLambdaRole, Arn]
       Runtime: nodejs12.x
       Timeout: 300
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref DynamoDBTableName
-  ComprehendTriggerAndStoreLambdaRole:
+          COMPREHEND_INPUT_BUCKET: !Ref ComprehendInputBucket
+          COMPREHEND_OUTPUT_BUCKET: !Ref ComprehendOutputBucket
+          COMPREHEND_DATA_ACCESS_ROLE: !GetAtt ComprehendDataAccessRole.Arn
+          CUSTOM_ENTITY_RECOGNIZER_ARN: !Ref CustomEntityRecognizerArn
+  ComprehendTriggerLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -398,7 +416,7 @@ Resources:
               - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: ComprehendTriggerAndStoreLambdaPolicy
+        - PolicyName: ComprehendTriggerLambdaPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -414,11 +432,12 @@ Resources:
                 Resource: "*"
               - Effect: Allow
                 Action:
-                  - dynamodb:BatchWriteItem
-                  - dynamodb:PutItem
-                  - dynamodb:DeleteItem
-                  - dynamodb:UpdateItem
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}
+                  - s3:*
+                Resource: !Sub arn:aws:s3:::${ComprehendInputBucketName}/*
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !GetAtt ComprehendDataAccessRole.Arn
   StateMachine:
     Type: AWS::StepFunctions::StateMachine
     Properties:
@@ -432,7 +451,7 @@ Resources:
               "Type": "Task",
               "Resource": "${StartTranscriptionLambda.Arn}",
               "ResultPath": "$",
-              "Next": "Wait X Seconds",
+              "Next": "Wait X Seconds for Transcribe",
               "Retry": [{
                 "ErrorEquals": ["States.ALL"],
                 "IntervalSeconds": 1,
@@ -440,15 +459,15 @@ Resources:
                 "BackoffRate": 2
               }]
             },
-            "Wait X Seconds": {
+            "Wait X Seconds for Transcribe": {
               "Type": "Wait",
-              "SecondsPath": "$.wait_time",
+              "SecondsPath": "$.TRANSCRIBE_WAIT_TIME",
               "Next": "Get Transcribe Job Status"
             },
             "Get Transcribe Job Status": {
               "Type": "Task",
               "Resource": "${CheckTranscriptionStatusLambda.Arn}",
-              "Next": "Job Complete?",
+              "Next": "Transcribe Job Complete?",
               "InputPath": "$",
               "ResultPath": "$",
               "Retry": [{
@@ -458,24 +477,24 @@ Resources:
                 "BackoffRate": 2
               }]
             },
-            "Job Complete?": {
+            "Transcribe Job Complete?": {
               "Type": "Choice",
               "Choices": [{
-                "Variable": "$.STATUS",
+                "Variable": "$.TRANSCRIBE_STATUS",
                 "StringEquals": "IN_PROGRESS",
-                "Next": "Wait X Seconds"
+                "Next": "Wait X Seconds for Transcribe"
               }, {
-                "Variable": "$.STATUS",
+                "Variable": "$.TRANSCRIBE_STATUS",
                 "StringEquals": "COMPLETED",
                 "Next": "Get Transcribe Job Output"
               }, {
-                "Variable": "$.STATUS",
+                "Variable": "$.TRANSCRIBE_STATUS",
                 "StringEquals": "FAILED",
-                "Next": "Job Failed"
+                "Next": "Transcribe Job Failed"
               }],
-              "Default": "Wait X Seconds"
+              "Default": "Wait X Seconds for Transcribe"
             },
-            "Job Failed": {
+            "Transcribe Job Failed": {
               "Type": "Fail",
               "Cause": "AWS Batch Job Failed",
               "Error": "DescribeJob returned FAILED"
@@ -484,7 +503,7 @@ Resources:
               "Type": "Task",
               "Resource": "${GetTranscriptionOutputLambda.Arn}",
               "InputPath": "$",
-              "Next": "Send contextual analysis",
+              "Next": "Trigger contextual analysis",
               "Retry": [{
                 "ErrorEquals": ["States.ALL"],
                 "IntervalSeconds": 1,
@@ -492,9 +511,74 @@ Resources:
                 "BackoffRate": 2
               }]
             },
-            "Send contextual analysis": {
+            "Trigger contextual analysis": {
               "Type": "Task",
-              "Resource": "${ComprehendTriggerAndStoreLambda.Arn}",
+              "Resource": "${ComprehendTriggerLambda.Arn}",
+              "InputPath": "$",
+              "ResultPath": "$",
+              "Next": "Wait X Seconds for Comprehend",
+              "Retry": [{
+                "ErrorEquals": ["States.ALL"],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }]
+            },
+            "Wait X Seconds for Comprehend": {
+              "Type": "Wait",
+              "SecondsPath": "$.COMPREHEND_WAIT_TIME",
+              "Next": "Get Comprehend Job Status"
+            },
+            "Get Comprehend Job Status": {
+              "Type": "Task",
+              "Resource": "${CheckComprehendStatusLambda.Arn}",
+              "Next": "Comprehend Job Complete?",
+              "InputPath": "$",
+              "ResultPath": "$",
+              "Retry": [{
+                "ErrorEquals": ["States.ALL"],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }]
+            },
+            "Comprehend Job Complete?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.COMPREHEND_STATUS",
+                "StringEquals": "IN_PROGRESS",
+                "Next": "Wait X Seconds for Comprehend"
+              }, {
+                "Variable": "$.COMPREHEND_STATUS",
+                "StringEquals": "COMPLETED",
+                "Next": "Get Comprehend Job Output"
+              }, {
+                "Variable": "$.COMPREHEND_STATUS",
+                "StringEquals": "FAILED",
+                "Next": "Comprehend Job Failed"
+              }],
+              "Default": "Wait X Seconds for Comprehend"
+            },
+            "Comprehend Job Failed": {
+              "Type": "Fail",
+              "Cause": "AWS Batch Job Failed",
+              "Error": "DescribeJob returned FAILED"
+            },
+            "Get Comprehend Job Output": {
+              "Type": "Task",
+              "Resource": "${GetComprehendOutputLambda.Arn}",
+              "InputPath": "$",
+              "Next": "Store contextual analysis",
+              "Retry": [{
+                "ErrorEquals": ["States.ALL"],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }]
+            },
+            "Store contextual analysis": {
+              "Type": "Task",
+              "Resource": "${StoreComprendOuputLambda.Arn}",
               "InputPath": "$",
               "End": true,
               "Retry": [{
@@ -637,3 +721,262 @@ Resources:
       ServiceToken: !GetAtt CustomResourceLambdaFunction.Arn
       LambdaArn: !GetAtt StepFunctionTriggerLambda.Arn
       Bucket: !Ref AudioFileS3Bucket
+  ComprehendInputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ComprehendInputBucketName
+  ComprehendOutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ComprehendOutputBucketName
+  ComprehendDataAccessRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - comprehend.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource: !Sub "arn:aws:s3:::${ComprehendInputBucketName}"
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                Resource: !Sub "arn:aws:s3:::${ComprehendInputBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${ComprehendOutputBucketName}/*"
+  CheckComprehendStatusLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          'use strict';
+          const AWS = require('aws-sdk');
+          const comprehend = new AWS.Comprehend();
+
+          exports.handler = (event, context, callback) => {
+              comprehend.describeEntitiesDetectionJob({
+                JobId: event.COMPREHEND_JOB_ID
+              }).promise()
+              .then(data => {
+                console.log(`Result from describeEntitiesDetectionJob - ${JSON.stringify(data)}`);
+                event.COMPREHEND_STATUS = data.EntitiesDetectionJobProperties.JobStatus;
+                event.COMPREHEND_WAIT_TIME = 20
+                event.comprehendOutputConfig = data.EntitiesDetectionJobProperties.OutputDataConfig;
+                callback(null, event);
+              })
+              .catch(err => {
+                console.log(err, err.stack);
+                callback(err, event)
+              });
+          };
+      Handler: index.handler
+      FunctionName: !Ref CheckComprehendStatusLambdaName
+      Description: Check status of comprehend job
+      Role:
+        Fn::GetAtt: [CheckComprehendStatusLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+  CheckComprehendStatusLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: CheckComprehendStatusLambdaRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - comprehend:*
+                Resource: "*"
+  GetComprehendOutputLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          import boto3
+
+          import botocore
+
+          import tarfile
+
+          import json
+
+          import os
+
+          from io import BytesIO
+
+          s3_client = boto3.client('s3')
+
+          def lambda_handler(event, context):
+              s3Uri = event['comprehendOutputConfig']['S3Uri']
+              bucket = os.environ['COMPREHEND_OUTPUT_BUCKET']
+              key = s3Uri.partition('s3://' + bucket + '/')[2]
+
+              input_tar_file = s3_client.get_object(Bucket = bucket, Key = key)
+              input_tar_content = input_tar_file['Body'].read()
+
+              with tarfile.open(fileobj = BytesIO(input_tar_content)) as tar:
+                  for tar_resource in tar:
+                      if (tar_resource.isfile()):
+                          inner_file_bytes = tar.extractfile(tar_resource).read()
+                          resp = str(inner_file_bytes, 'utf-8')
+                          event['enitities'] = json.loads(resp)['Entities']
+                          return json.loads(resp)['Entities']
+      Handler: index.lambda_handler
+      FunctionName: !Ref GetComprehendOutputLambdaName
+      Description: Get comprehend output
+      Role:
+        Fn::GetAtt: [GetComprehendOutputLambdaRole, Arn]
+      Runtime: python3.7
+      Timeout: 300
+      Environment:
+        Variables:
+          COMPREHEND_OUTPUT_BUCKET: !Ref ComprehendOutputBucketName
+  GetComprehendOutputLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: CheckComprehendStatusLambdaRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource: !Sub "arn:aws:s3:::${ComprehendOutputBucketName}"
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                Resource: !Sub "arn:aws:s3:::${ComprehendOutputBucketName}/*"
+  StoreComprendOuputLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: >
+          'use strict';
+          const https = require('https');
+          const AWS = require('aws-sdk');
+          const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+          exports.handler = (event, context, callback) => {
+            console.log(`Detected entities: ${JSON.stringify(event.entities)}`);
+            return storeToDynamoDB('robinjer@amazon.com', event.enitities, [])
+            .then(() => {
+              callback(null, event);
+            })
+            .catch(err => {
+              console.log(err, err.stack);
+            });
+          };
+            
+          const storeToDynamoDB = (customerId, entities, sentiments) => {
+            const timestamp = new Date().getTime();
+            const params = {
+              TableName: process.env.DYNAMODB_TABLE,
+              Item: {
+                customerId: customerId,
+                entities: entities,
+                sentiments: sentiments,
+                recommendations: [],
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              }
+            }
+            return dynamoDb.put(params).promise()
+              .then(data => {
+                console.log(`Stored entities in DynamoDB for customer: ${customerId}`);
+                return Promise.resolve(data);
+              })
+              .catch(err => {
+                console.error(`Failed to store entities in DynamoDB for customer: ${customerId}, error : ${JSON.stringify(err)}`);
+                return Promise.reject(err);
+              })
+          };
+      Handler: index.handler
+      FunctionName: !Ref StoreComprehendOutputLambdaName
+      Description: Store comprehend output to Dynamo DB
+      Role:
+        Fn::GetAtt: [StoreComprendOuputLambdaRole, Arn]
+      Runtime: nodejs12.x
+      Timeout: 300
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref DynamoDBTableName
+  StoreComprendOuputLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: ComprehendTriggerLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}

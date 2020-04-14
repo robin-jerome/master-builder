@@ -118,3 +118,4 @@ dist
 
 stacks/presentation-stack/web-ui/build
 stacks/presentation-stack/web-ui/public/settings.js
+comprehend/raw-data
