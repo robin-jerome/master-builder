@@ -34,7 +34,7 @@ Resources:
               .filter(r => {
                 if (r.eventName === 'REMOVE') return false;
                 if (r.dynamodb && r.dynamodb.NewImage) { // Records with entities and no recommendations
-                  return r.dynamodb.NewImage.recommendations.L.length === 0 /* && r.dynamodb.NewImage.entities.L.length > 0 */ //TODO: Remove after entities are populated
+                  return r.dynamodb.NewImage.recommendations.L.length === 0 && r.dynamodb.NewImage.entities.L.length > 0
                 }
                 return false;
               });
