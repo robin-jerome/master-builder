@@ -917,6 +917,7 @@ Resources:
             
           const storeToDynamoDB = (customerId, entities) => {
             const timestamp = new Date().getTime();
+            const newRecs = [];
             return dynamoDb.update({
               TableName: process.env.DYNAMODB_TABLE,
               Key: {
@@ -925,13 +926,13 @@ Resources:
               UpdateExpression: "set entities = :e, recommendations = :r, updatedAt = :t",
               ExpressionAttributeValues: {
                 ":e": entities,
-                ":r": [],
+                ":r": newRecs,
                 ":t": timestamp
               },
               ReturnValues: 'UPDATED_NEW'
             }).promise()
               .then(data => {
-                console.log(`Stored entities in DynamoDB for customer: ${customerId}`);
+                console.log(`Stored entities in DynamoDB for customer: ${customerId} - ${JSON.stringify(data)}`);
                 return Promise.resolve(data);
               })
               .catch(err => {

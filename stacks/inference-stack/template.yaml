@@ -21,23 +21,29 @@ Resources:
           const sagemakerruntime = new AWS.SageMakerRuntime({ apiVersion: '2017-05-13', region: 'us-east-2' });
 
           const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
           const sageMakerEp = process.env.SAGEMAKER_ENDPOINT;
-
           const dynamoTable = process.env.DYNAMODB_TABLE;
-
           const PRODUCT_ID = 'Fixed Deposit';
-
+          const ENTITY_INVESTMENT = 'INVESTMENT';
           exports.handler = async (event, context, callback) => {
             console.log(`Received event in SageMaker trigger lambda ${JSON.stringify(event)}`);
             const recordsForInference = event.Records
               .filter(r => {
-                if (r.eventName === 'REMOVE') return false;
-                if (r.dynamodb && r.dynamodb.NewImage) { // Records with entities and no recommendations
-                  return r.dynamodb.NewImage.entities.L.find(e => e.M.Type.S === 'INVESTMENT') !== null;
+                if (r.eventName === 'REMOVE') {
+                  return false;
+                } else if (r.dynamodb.NewImage.entities.L.length === 0) {
+                  return false;
+                } else if (r.dynamodb.NewImage.entities.L.find(e => e.M.Type.S === ENTITY_INVESTMENT) !== null) {
+                  if (r.dynamodb.NewImage.recommendations.L.length === 0) {
+                    return true;
+                  } else if (r.dynamodb.NewImage.recommendations.L.find(e => e.M.productId.S === PRODUCT_ID) !== null) {
+                    return false;
+                  }
+                  return true;
                 }
-                return false;
+                return false
               });
+
             const inferencePromises = recordsForInference.map(r => {
               const inferenceParams = getInferenceParams(r);
               return sagemakerruntime.invokeEndpoint({
@@ -88,7 +94,11 @@ Resources:
                 ":t": timestamp
               },
               ReturnValues: 'UPDATED_NEW'
-            }).promise();
+            }).promise()
+              .then(data => {
+                console.log(`Stored recommendations in DynamoDB for customer: ${customerId} - ${JSON.stringify(data)}`);
+                return Promise.resolve(data);
+              })
           }
 
           const getInferenceParams = (record) => {
