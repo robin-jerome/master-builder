@@ -851,7 +851,7 @@ Resources:
                       if (tar_resource.isfile()):
                           inner_file_bytes = tar.extractfile(tar_resource).read()
                           resp = str(inner_file_bytes, 'utf-8')
-                          event['enitities'] = json.loads(resp)['Entities']
+                          event['entities'] = json.loads(resp)['Entities']
                           return event
       Handler: index.lambda_handler
       FunctionName: !Ref GetComprehendOutputLambdaName
@@ -906,7 +906,7 @@ Resources:
 
           exports.handler = (event, context, callback) => {
             console.log(`Detected entities: ${JSON.stringify(event.entities)}`);
-            return storeToDynamoDB('robinjer@amazon.com', event.enitities)
+            return storeToDynamoDB('robinjer@amazon.com', event.entities)
             .then(() => {
               callback(null, event);
             })
@@ -922,9 +922,10 @@ Resources:
               Key: {
                 'customerId': customerId
               },
-              UpdateExpression: "set entities = :r, updatedAt = :t",
+              UpdateExpression: "set entities = :e, recommendations = :r, updatedAt = :t",
               ExpressionAttributeValues: {
-                ":r": entities,
+                ":e": entities,
+                ":r": [],
                 ":t": timestamp
               },
               ReturnValues: 'UPDATED_NEW'
